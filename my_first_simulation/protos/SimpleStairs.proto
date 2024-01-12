@@ -1,0 +1,93 @@
+#VRML_SIM R2019a utf8
+# tags: static
+
+PROTO SimpleStairs [
+  field SFVec3f    translation 0 0 0
+  field SFRotation rotation    0 1 0 0
+  field SFString   name        "stairs"
+  field SFInt32    nSteps      10
+  field SFVec3f    stepSize    0.2 0.2 0.8
+  field SFColor    color       0 1 0
+  field SFString   text        "my text"
+  field SFNode     physics     NULL
+]
+{
+  # template statements can be used from here
+  %{
+    -- a template statement can be written on several lines
+    if fields.nSteps.value < 1 then
+      print('nSteps should be strictly positive')
+    end
+
+    -- print the path to this proto
+    print(context.proto)
+
+    if fields.stepSize.value.x ~= fields.stepSize.defaultValue.x then
+      print('The X step size used is not the default one')
+    end
+
+    -- print the mass inside the physics node
+    if fields.physics.value then
+      print (fields.physics.value.fields.mass.value)
+    end
+
+   -- load lua-gd module and create a uniform texture
+   local gd = require("gd")
+   local debug = require("debug")
+   local os = require('os')
+   local wbrandom = require('wbrandom')
+   wbrandom.seed(os.clock() + os.time())
+   local im = gd.createTrueColor(128, 128)
+   color = im:colorAllocate(fields.color.value.r * 255, fields.color.value.g * 255, fields.color.value.b * 255)
+   im:filledRectangle(0, 0, 127, 127, color)
+   -- add the text in the texture
+   textColor = im:colorAllocate(0, 0, 0)
+   gd.fontCacheSetup()
+   im:stringFT(textColor, "Arial", 20, 0, 5, 60, fields.text.value)
+   -- save the image in a png file
+   local name = debug.getinfo(1,'S').source  -- get the name of the current file
+   name = name .. wbrandom.integer(0, 100000)  -- add a random number to reduce name clashes
+   local i = 0  -- make sure the file does not already exist
+   local file = io.open(name .. i .. ".png", "r")
+   while file do
+     file:close()
+     i = i + 1
+     file = io.open(name .. i .. ".png", "r")
+   end
+   im:png(name .. i .. ".png")
+   gd.fontCacheShutdown()
+  }%
+  Solid {
+    translation IS translation
+    rotation IS rotation
+    children [
+      DEF SIMPLE_STAIRS_GROUP Group {
+        children [
+        %{ for j = 0, (fields.nSteps.value - 1) do }%
+          %{ x = j * fields.stepSize.value.x }%
+          %{ y = j * fields.stepSize.value.y + fields.stepSize.value.y / 2 }%
+            Transform {
+              translation %{=x}% %{=y}% 0
+              children [
+                Shape {
+                  appearance Appearance {
+                    texture ImageTexture {
+                      url [ %{= '"' .. context.temporary_files_path .. name .. i .. '.png"' }% ]
+                    }
+                  }
+                  geometry Box {
+                    size IS stepSize
+                  }
+                }
+              ]
+            }
+          %{ end }%
+        ]
+      }
+    ]
+    name IS name
+    boundingObject USE SIMPLE_STAIRS_GROUP
+    physics IS physics
+  }
+  # template statements can be used up to there
+}
